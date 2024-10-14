@@ -11,18 +11,26 @@ nltk.download('stopwords')
 
 app = Flask(__name__)
 
+# dataset
+newsgroups = fetch_20newsgroups(subset='all')
+documents = newsgroups.data
 
-# TODO: Fetch dataset, initialize vectorizer and LSA here
-
+#vectorizer and lsa using scikit svd and tf-idf
+vectorizer = TfidfVectorizer(stop_words='english')
+tfidf_matrix = vectorizer.fit_transform(documents)
+svd = TruncatedSVD(n_components=100) 
+lsa_matrix = svd.fit_transform(tfidf_matrix)
 
 def search_engine(query):
-    """
-    Function to search for top 5 similar documents given a query
-    Input: query (str)
-    Output: documents (list), similarities (list), indices (list)
-    """
-    # TODO: Implement search engine here
-    # return documents, similarities, indices 
+    query_vector = vectorizer.transform([query])
+    query_lsa = svd.transform(query_vector)
+
+    similarities = cosine_similarity(query_lsa, lsa_matrix).flatten()
+    indices = similarities.argsort()[-5:][::-1]  
+    top_documents = [documents[i] for i in indices]
+    top_similarities = similarities[indices].tolist()
+
+    return top_documents, top_similarities, indices.tolist()
 
 @app.route('/')
 def index():
@@ -35,4 +43,4 @@ def search():
     return jsonify({'documents': documents, 'similarities': similarities, 'indices': indices}) 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=3000, debug=True)
